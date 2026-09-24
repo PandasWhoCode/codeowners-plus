@@ -4,7 +4,7 @@ Code Ownership &amp; Review Assignment Tool - GitHub CODEOWNERS but better
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/multimediallc/codeowners-plus)](https://goreportcard.com/report/github.com/multimediallc/codeowners-plus?kill_cache=1)
 [![Tests](https://github.com/multimediallc/codeowners-plus/actions/workflows/go.yml/badge.svg)](https://github.com/multimediallc/codeowners-plus/actions/workflows/go.yml)
-![Coverage](https://img.shields.io/badge/Coverage-83.6%25-brightgreen)
+![Coverage](https://img.shields.io/badge/Coverage-84.7%25-brightgreen)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
@@ -19,6 +19,8 @@ Code Ownership &amp; Review Assignment Tool - GitHub CODEOWNERS but better
   - [GitHub Teams Support](#github-teams-support)
   - [GitHub Enterprise](#github-enterprise)
 - [Configuration](#configuration)
+  - [Organization Placeholder](#organization-placeholder)
+  - [GitHub CODEOWNERS Mode](#github-codeowners-mode)
   - [.codeowners File Spec](#codeowners-file-spec)
   - [Advanced Configuration](#advanced-configuration)
     - [Enforcement Options](#enforcement-options)
@@ -51,6 +53,8 @@ These are features missing from GitHub code owners that are supported by Codeown
 * Directory-level code ownership files to assign fine-grained code ownership
 * Supports optional reviewers (cc users/teams for non-blocking reviews)
 * Hunk filters: external tooling can decide which post-approval changes do not need re-review (see [Hunk Filters](#hunk-filters))
+* Organization placeholder: write `@%/team` so one ownership file works in several organizations (see [Organization Placeholder](#organization-placeholder))
+* Can read a GitHub-format `CODEOWNERS` file instead of `.codeowners` files (see [GitHub CODEOWNERS Mode](#github-codeowners-mode))
 * Advanced global configuration (see [Advanced Configuration](#advanced-configuration))
 
 ## Getting Started
@@ -115,6 +119,13 @@ It is recommended to also set up a rerun workflow on `pull_request_review` to re
 
 If you plan to have organization teams as code owners, you will need to use a PAT that has organization [read access for Members and Administration](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens) as the token. If you do not have organization teams as owners, [GITHUB_TOKEN](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow) should be sufficient.
 
+If you would rather not give the main token organization read access, pass a second token with the `team-token` input. It is used only for team-membership lookups, and `github-token` is used for everything else:
+
+```yaml
+          github-token: ${{ secrets.PR_TOKEN }}
+          team-token: ${{ secrets.TEAM_MEMBERS_TOKEN }}
+```
+
 ### GitHub Enterprise
 
 Codeowners Plus talks to the API of the instance running the workflow, so it works on GitHub Enterprise without any extra configuration. To point it at a different API, set the `github-api-url` input:
@@ -129,6 +140,50 @@ The value should be the instance's exact API URL — the same value as the `gith
 > When the action is referenced by a release tag (or the SHA of a release commit), it downloads its prebuilt binary from this repository on public `github.com` (see [scripts/install-action.sh](scripts/install-action.sh)) — this is also true if you mirror the action onto your own instance, so mirrored copies should not use release refs. Referencing a branch or a non-release commit builds the binary from source instead, which requires egress to the Go toolchain and module proxy (`actions/setup-go` downloads, `proxy.golang.org`, `sum.golang.org`). On an egress-restricted Enterprise instance, allow whichever set of origins fits your setup.
 
 ## Configuration
+
+### Organization Placeholder
+
+A team reference is organization-qualified (`@your-org/platform-ci`), which normally prevents the same ownership file from being shared across two organizations. Write `%` in place of the organization and it is expanded at run time to the organization of the repository the action is running in:
+
+```
+* @%/platform-ci
+```
+
+In `your-org/repo` that resolves to `@your-org/platform-ci`; in `other-org/repo` the identical file resolves to `@other-org/platform-ci`. This works in `.codeowners` files, in GitHub CODEOWNERS mode, and in `unskippable_reviewers` in `codeowners.toml`.
+
+Only the exact `@%/` prefix is a placeholder. `@user`, `@org/team` and any other use of `%` pass through untouched, so existing files are unaffected — and because `%` is not a legal character in a GitHub organization name, there is no possibility of collision with a real owner. An owner token that contains `%` in any other position produces a warning, so typos surface instead of silently never matching.
+
+> [!Note]
+> A repository owned by a personal account rather than an organization will expand `@%/team` to `@user/team`, and the team lookup will fail with a warning. The placeholder is only meaningful for organization-owned repositories.
+
+For the CLI, pass the organization explicitly with `--org`:
+
+```bash
+codeowners-cli owner --org your-org path/to/file
+```
+
+### GitHub CODEOWNERS Mode
+
+Set the `github-codeowners-file` input to read ownership from a single GitHub-format `CODEOWNERS` file instead of per-directory `.codeowners` files:
+
+```yaml
+      - uses: multimediallc/codeowners-plus@v1.11.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr: ${{ github.event.pull_request.number }}
+          github-codeowners-file: '.github/CODEOWNERS'
+```
+
+The same thing can be set in `codeowners.toml` with `github_codeowners_file = ".github/CODEOWNERS"`. The input wins when both are set.
+
+In this mode the file is parsed with GitHub's own semantics, which differ from the `.codeowners` format:
+
+* **Last matching rule wins**, rather than the type-of-rule priority described under [Priority](#priority).
+* Patterns are relative to the repository root and follow GitHub's path rules: a pattern with no `/` matches at any depth (`*.js`), a leading or embedded `/` anchors to the root (`/docs`, `docs/team`), a trailing `/` matches only a directory's contents (`docs/`), and `docs/*` matches files directly in `docs` but not nested ones.
+* Several owners on one line form an `OR` group, as they do in GitHub. There are no `&` (`AND`) or `?` (optional) rules — the GitHub format has no syntax for them.
+* Email owners are not supported and are skipped with a warning.
+
+The file is read from the pull request's base ref, so a pull request cannot change its own ownership rules.
 
 ### .codeowners File Spec
 
@@ -229,8 +284,14 @@ min_reviews = 1
 max_reviews = 2
 
 # `unskippable_reviewers` (default empty) allows you to specify reviewers that cannot be
-#  skipped via the max_reviews setting
+#  skipped via the max_reviews setting.  Supports the "@%/" organization placeholder.
 unskippable_reviewers = ["@BakerNet"]
+
+# `github_codeowners_file` (default "") reads ownership from a single GitHub-format
+#  CODEOWNERS file instead of per-directory .codeowners files, using GitHub's
+#  last-matching-rule-wins semantics.  The `github-codeowners-file` action input
+#  overrides this.  See "GitHub CODEOWNERS Mode".
+github_codeowners_file = ".github/CODEOWNERS"
 
 # `ignore` (default empty) allows you to specify directories that should be ignored by the
 #  codeowners check
@@ -462,6 +523,13 @@ Available subcommands are:
 * `unowned` to check for unowned files
 * `owner` to check who owns a specific file or list of files
 * `validate` to check for typos in a `.codeowners` file
+* `map` to print a full ownership map of the repository
+
+`unowned`, `owner` and `map` accept `--org`, which supplies the organization used to expand the `@%/` placeholder in owner tokens.  Without it the placeholder is left as-is:
+
+```bash
+codeowners-cli owner --org your-org src/main.go
+```
 
 ## Contributing
 

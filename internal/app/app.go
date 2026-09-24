@@ -54,16 +54,23 @@ func (od *OutputData) UpdateOutputData(success bool, message string, stillRequir
 
 // Config holds the application configuration
 type Config struct {
-	Token         string
-	ApiUrl        string
-	RepoDir       string
-	PR            int
-	Repo          string
-	Verbose       bool
-	Quiet         bool
-	Workspace     string
-	InfoBuffer    io.Writer
-	WarningBuffer io.Writer
+	Token string
+	// TeamToken is used only for organization team-membership lookups. Falls
+	// back to Token when empty.
+	TeamToken string
+	// GitHubCodeownersFile is a repo-relative path to a GitHub-format
+	// CODEOWNERS file. When set it takes precedence over the
+	// github_codeowners_file key in codeowners.toml.
+	GitHubCodeownersFile string
+	ApiUrl               string
+	RepoDir              string
+	PR                   int
+	Repo                 string
+	Verbose              bool
+	Quiet                bool
+	Workspace            string
+	InfoBuffer           io.Writer
+	WarningBuffer        io.Writer
 }
 
 // hunkFilterTimeout bounds each call, so a hook that hangs cannot hold up the check.
@@ -71,8 +78,11 @@ const hunkFilterTimeout = 60 * time.Second
 
 // App represents the application with its dependencies
 type App struct {
-	Conf       *owners.Config
-	config     *Config
+	Conf   *owners.Config
+	config *Config
+	// owner is the organization (or user) the repository belongs to. It is
+	// used to expand the "@%/" organization placeholder in owner tokens.
+	owner      string
 	client     gh.Client
 	codeowners codeowners.CodeOwners
 	gitDiff    git.Diff
@@ -87,16 +97,34 @@ func New(cfg Config) (*App, error) {
 	owner := repoSplit[0]
 	repo := repoSplit[1]
 
-	client, err := gh.NewClient(owner, repo, cfg.Token, cfg.ApiUrl)
+	client, err := gh.NewClient(owner, repo, cfg.Token, cfg.ApiUrl, gh.WithTeamToken(cfg.TeamToken))
 	if err != nil {
 		return nil, err
 	}
 	app := &App{
 		config: &cfg,
+		owner:  owner,
 		client: client,
 	}
 
 	return app, nil
+}
+
+// codeownersOptions builds the options shared by every codeowners.New call, so
+// the base and head readers in require_both_branch_reviewers mode stay in sync.
+func (a *App) codeownersOptions() []codeowners.Option {
+	opts := []codeowners.Option{codeowners.WithOrg(a.owner)}
+
+	// The action input wins over the codeowners.toml key, so a workflow can
+	// opt in without editing the repository config.
+	githubCodeownersFile := a.config.GitHubCodeownersFile
+	if githubCodeownersFile == "" && a.Conf != nil {
+		githubCodeownersFile = a.Conf.GitHubCodeownersFile
+	}
+	if githubCodeownersFile != "" {
+		opts = append(opts, codeowners.WithGitHubCodeownersFile(githubCodeownersFile))
+	}
+	return opts
 }
 
 func (a *App) printDebug(format string, args ...interface{}) {
@@ -225,14 +253,14 @@ func (a *App) Run() (*OutputData, error) {
 		a.printDebug("Require both branch reviewers mode enabled - reading .codeowners from both base and head refs\n")
 
 		// Create base codeowners from base ref
-		baseCodeOwners, err := codeowners.New(a.config.RepoDir, gitDiff.AllChanges(), baseFileReader, a.config.WarningBuffer)
+		baseCodeOwners, err := codeowners.New(a.config.RepoDir, gitDiff.AllChanges(), baseFileReader, a.config.WarningBuffer, a.codeownersOptions()...)
 		if err != nil {
 			return &OutputData{}, fmt.Errorf("NewCodeOwners (base) Error: %v", err)
 		}
 
 		// Create head file reader and codeowners from head ref
 		headFileReader := git.NewGitRefFileReader(a.client.PR().Head.GetSHA(), a.config.RepoDir)
-		headCodeOwners, err := codeowners.New(a.config.RepoDir, gitDiff.AllChanges(), headFileReader, a.config.WarningBuffer)
+		headCodeOwners, err := codeowners.New(a.config.RepoDir, gitDiff.AllChanges(), headFileReader, a.config.WarningBuffer, a.codeownersOptions()...)
 		if err != nil {
 			return &OutputData{}, fmt.Errorf("NewCodeOwners (head) Error: %v", err)
 		}
@@ -242,7 +270,7 @@ func (a *App) Run() (*OutputData, error) {
 		a.printDebug("Merged ownership rules from base and head refs\n")
 	} else {
 		// Standard mode: read .codeowners only from base ref
-		codeOwners, err = codeowners.New(a.config.RepoDir, gitDiff.AllChanges(), baseFileReader, a.config.WarningBuffer)
+		codeOwners, err = codeowners.New(a.config.RepoDir, gitDiff.AllChanges(), baseFileReader, a.config.WarningBuffer, a.codeownersOptions()...)
 		if err != nil {
 			return &OutputData{}, fmt.Errorf("NewCodeOwners Error: %v", err)
 		}
@@ -348,7 +376,11 @@ func (a *App) processApprovalsAndReviewers() (bool, string, []string, error) {
 	unapprovedOwners := a.codeowners.AllRequired()
 	maxReviewsMet := false
 	if a.Conf.MaxReviews != nil && *a.Conf.MaxReviews > 0 {
-		unskippableReviewerSlugs := codeowners.NewSlugs(a.Conf.UnskippableReviewers)
+		unskippableReviewers := make([]string, len(a.Conf.UnskippableReviewers))
+		for i, reviewer := range a.Conf.UnskippableReviewers {
+			unskippableReviewers[i] = codeowners.ExpandOrg(reviewer, a.owner)
+		}
+		unskippableReviewerSlugs := codeowners.NewSlugs(unskippableReviewers)
 		if validApprovalCount >= *a.Conf.MaxReviews && !unapprovedOwners.ContainsAny(unskippableReviewerSlugs) {
 			maxReviewsMet = true
 		}

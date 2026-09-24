@@ -115,6 +115,9 @@ func Read(path string, reviewerGroupManager ReviewerGroupManager, fileReader Fil
 			match = match + "**"
 		}
 		owner := parts[1:]
+		for _, name := range owner {
+			warnSuspiciousOrgPlaceholder(name, warningWriter)
+		}
 		if match == "*" {
 			if !additional && !optional {
 				rules.Fallback = reviewerGroupManager.ToReviewerGroup(owner...)

@@ -58,10 +58,13 @@ type Client interface {
 }
 
 type GHClient struct {
-	ctx             context.Context
-	owner           string
-	repo            string
-	client          *github.Client
+	ctx    context.Context
+	owner  string
+	repo   string
+	client *github.Client
+	// teamClient performs organization team-membership lookups. It is the
+	// same as client unless a separate team token was supplied.
+	teamClient      *github.Client
 	pr              *github.PullRequest
 	userReviewerMap ghUserReviewerMap
 	comments        []*github.IssueComment
@@ -70,7 +73,29 @@ type GHClient struct {
 	infoBuffer      io.Writer
 }
 
-func NewClient(owner, repo, token, apiUrl string) (Client, error) {
+// ClientOptions holds the optional settings for NewClient.
+type ClientOptions struct {
+	// TeamToken is used only for organization team-membership lookups. When
+	// empty, the main token is used.
+	TeamToken string
+}
+
+// ClientOption configures NewClient.
+type ClientOption func(*ClientOptions)
+
+// WithTeamToken sets a separate token for organization team-membership
+// lookups, so callers can scope org read access away from the token used for
+// pull request writes.
+func WithTeamToken(token string) ClientOption {
+	return func(o *ClientOptions) { o.TeamToken = token }
+}
+
+func NewClient(owner, repo, token, apiUrl string, clientOpts ...ClientOption) (Client, error) {
+	options := ClientOptions{}
+	for _, opt := range clientOpts {
+		opt(&options)
+	}
+
 	opts := []github.ClientOptionsFunc{github.WithAuthToken(token)}
 	if apiUrl = strings.TrimSpace(apiUrl); apiUrl != "" {
 		// apiUrl is expected to be the instance's exact API base URL, so use it
@@ -97,18 +122,37 @@ func NewClient(owner, repo, token, apiUrl string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	teamClient := client
+	if strings.TrimSpace(options.TeamToken) != "" {
+		teamOpts := append([]github.ClientOptionsFunc{}, opts...)
+		// The auth token is applied last so it overrides the main token.
+		teamOpts = append(teamOpts, github.WithAuthToken(options.TeamToken))
+		teamClient, err = github.NewClient(teamOpts...)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &GHClient{
-		context.Background(),
-		owner,
-		repo,
-		client,
-		nil,
-		nil,
-		nil,
-		nil,
-		io.Discard,
-		io.Discard,
+		ctx:           context.Background(),
+		owner:         owner,
+		repo:          repo,
+		client:        client,
+		teamClient:    teamClient,
+		warningBuffer: io.Discard,
+		infoBuffer:    io.Discard,
 	}, nil
+}
+
+// teamAPIClient returns the client used for organization team-membership
+// lookups. It tolerates a zero-value teamClient so a GHClient built directly
+// (as tests do) keeps working with the main client.
+func (gh *GHClient) teamAPIClient() *github.Client {
+	if gh.teamClient != nil {
+		return gh.teamClient
+	}
+	return gh.client
 }
 
 func (gh *GHClient) PR() *github.PullRequest {
@@ -141,7 +185,7 @@ func (gh *GHClient) InitUserReviewerMap(reviewers []string) error {
 		allUsers := make([]*github.User, 0)
 		getMembers := func(page int) (*github.Response, error) {
 			listOptions := &github.TeamListTeamMembersOptions{ListOptions: github.ListOptions{PerPage: 100, Page: page}}
-			users, res, err := gh.client.Teams.ListTeamMembersBySlug(gh.ctx, org, team, listOptions)
+			users, res, err := gh.teamAPIClient().Teams.ListTeamMembersBySlug(gh.ctx, org, team, listOptions)
 			if err != nil {
 				_, _ = fmt.Fprintf(gh.warningBuffer, "WARNING: Error fetching team members for %s/%s: %v\n", org, team, err)
 			}

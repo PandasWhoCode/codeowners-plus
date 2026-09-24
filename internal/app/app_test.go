@@ -1302,3 +1302,54 @@ func TestCommentDetailedReviewers(t *testing.T) {
 		})
 	}
 }
+
+func TestAppOwnerAndCodeownersOptions(t *testing.T) {
+	t.Run("New derives the owner from the repo", func(t *testing.T) {
+		app, err := New(Config{Repo: "swirldslabs/chewie-sandbox", Token: "t"})
+		if err != nil {
+			t.Fatalf("New returned error: %v", err)
+		}
+		if app.owner != "swirldslabs" {
+			t.Errorf("owner = %q, expected swirldslabs", app.owner)
+		}
+	})
+
+	t.Run("options always carry the org", func(t *testing.T) {
+		app := &App{owner: "acme", config: &Config{}, Conf: &owners.Config{}}
+		opts := app.codeownersOptions()
+		resolved := codeowners.Options{}
+		for _, opt := range opts {
+			opt(&resolved)
+		}
+		if resolved.Org != "acme" {
+			t.Errorf("Org = %q, expected acme", resolved.Org)
+		}
+		if resolved.GitHubCodeownersFile != "" {
+			t.Errorf("GitHubCodeownersFile = %q, expected empty", resolved.GitHubCodeownersFile)
+		}
+	})
+
+	t.Run("the toml key selects GitHub mode", func(t *testing.T) {
+		conf := &owners.Config{GitHubCodeownersFile: ".github/CODEOWNERS"}
+		app := &App{owner: "acme", config: &Config{}, Conf: conf}
+		resolved := codeowners.Options{}
+		for _, opt := range app.codeownersOptions() {
+			opt(&resolved)
+		}
+		if resolved.GitHubCodeownersFile != ".github/CODEOWNERS" {
+			t.Errorf("GitHubCodeownersFile = %q", resolved.GitHubCodeownersFile)
+		}
+	})
+
+	t.Run("the action input wins over the toml key", func(t *testing.T) {
+		conf := &owners.Config{GitHubCodeownersFile: "from-toml"}
+		app := &App{owner: "acme", config: &Config{GitHubCodeownersFile: "from-input"}, Conf: conf}
+		resolved := codeowners.Options{}
+		for _, opt := range app.codeownersOptions() {
+			opt(&resolved)
+		}
+		if resolved.GitHubCodeownersFile != "from-input" {
+			t.Errorf("GitHubCodeownersFile = %q, expected from-input", resolved.GitHubCodeownersFile)
+		}
+	})
+}

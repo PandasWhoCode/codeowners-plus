@@ -40,6 +40,7 @@ func getTargets(cmd *cli.Command) ([]string, error) {
 
 func main() {
 	var repo string
+	var org string
 	cli.VersionFlag = &cli.BoolFlag{
 		Name:    "version",
 		Aliases: []string{"v"},
@@ -67,6 +68,12 @@ func main() {
 						Value:       "./",
 						Usage:       "Path to local Git repo",
 						Destination: &repo,
+					},
+					&cli.StringFlag{
+						Name:        "org",
+						Value:       "",
+						Usage:       "GitHub organization used to expand the \"@%/\" placeholder in owner tokens",
+						Destination: &org,
 					},
 					&cli.IntFlag{
 						Name:    "depth",
@@ -97,7 +104,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return unownedFilesWithFormat(repo, targets, int(cmd.Int("depth")), cmd.Bool("dirs_only"), format)
+					return unownedFilesWithFormat(repo, org, targets, int(cmd.Int("depth")), cmd.Bool("dirs_only"), format)
 				},
 			},
 			{
@@ -113,6 +120,12 @@ func main() {
 						Value:       "./",
 						Usage:       "Path to local Git repo",
 						Destination: &repo,
+					},
+					&cli.StringFlag{
+						Name:        "org",
+						Value:       "",
+						Usage:       "GitHub organization used to expand the \"@%/\" placeholder in owner tokens",
+						Destination: &org,
 					},
 					&cli.StringFlag{
 						Name:    "format",
@@ -135,7 +148,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return fileOwner(repo, targets, format)
+					return fileOwner(repo, org, targets, format)
 				},
 			},
 			{
@@ -197,6 +210,12 @@ func main() {
 						Destination: &repo,
 					},
 					&cli.StringFlag{
+						Name:        "org",
+						Value:       "",
+						Usage:       "GitHub organization used to expand the \"@%/\" placeholder in owner tokens",
+						Destination: &org,
+					},
+					&cli.StringFlag{
 						Name:  "by",
 						Value: "file",
 						Usage: "Map by 'file' (files to owners) or 'owner' (owners to files)",
@@ -207,7 +226,7 @@ func main() {
 					if mapBy != "file" && mapBy != "owner" {
 						return fmt.Errorf("invalid value for --by flag: must be 'file' or 'owner'")
 					}
-					return generateOwnershipMap(repo, mapBy)
+					return generateOwnershipMap(repo, org, mapBy)
 				},
 			},
 		},
@@ -255,7 +274,7 @@ func depthCheck(path string, target string, depth int) bool {
 	return strings.Count(path, "/") > (depth + extra)
 }
 
-func unownedFilesWithFormat(repo string, targets []string, depth int, dirsOnly bool, format OutputFormat) error {
+func unownedFilesWithFormat(repo string, org string, targets []string, depth int, dirsOnly bool, format OutputFormat) error {
 	if repoStat, err := os.Lstat(repo); err != nil || !repoStat.IsDir() {
 		return fmt.Errorf("root is not a directory: %s", repo)
 	}
@@ -288,7 +307,7 @@ func unownedFilesWithFormat(repo string, targets []string, depth int, dirsOnly b
 			filesForTarget = append(filesForTarget, repoFile)
 		}
 
-		ownersMap, err := codeowners.New(repo, filesForTarget, &codeowners.FilesystemReader{}, io.Discard)
+		ownersMap, err := codeowners.New(repo, filesForTarget, &codeowners.FilesystemReader{}, io.Discard, codeowners.WithOrg(org))
 		if err != nil {
 			return fmt.Errorf("error reading codeowners config: %s", err)
 		}
@@ -410,7 +429,7 @@ func printOwners(required codeowners.ReviewerGroups, optional codeowners.Reviewe
 	fmt.Println()
 }
 
-func fileOwner(repo string, targets []string, format OutputFormat) error {
+func fileOwner(repo string, org string, targets []string, format OutputFormat) error {
 	if repoStat, err := os.Lstat(repo); err != nil || !repoStat.IsDir() {
 		return fmt.Errorf("root is not a directory: %s", repo)
 	}
@@ -434,7 +453,7 @@ func fileOwner(repo string, targets []string, format OutputFormat) error {
 		diffFiles[i] = codeowners.DiffFile{FileName: target}
 	}
 
-	ownersMap, err := codeowners.New(repo, diffFiles, &codeowners.FilesystemReader{}, io.Discard)
+	ownersMap, err := codeowners.New(repo, diffFiles, &codeowners.FilesystemReader{}, io.Discard, codeowners.WithOrg(org))
 	if err != nil {
 		return fmt.Errorf("error reading codeowners config: %s", err)
 	}
@@ -452,7 +471,7 @@ func fileOwner(repo string, targets []string, format OutputFormat) error {
 
 // generateOwnershipMap walks the entire repository, determines file ownership,
 // and prints a comprehensive JSON map of the results.
-func generateOwnershipMap(repo string, mapBy string) error {
+func generateOwnershipMap(repo string, org string, mapBy string) error {
 	if repoStat, err := os.Lstat(repo); err != nil || !repoStat.IsDir() {
 		return fmt.Errorf("root is not a directory: %s", repo)
 	}
@@ -465,7 +484,7 @@ func generateOwnershipMap(repo string, mapBy string) error {
 		return err
 	}
 
-	ownersMap, err := codeowners.New(repo, files, &codeowners.FilesystemReader{}, io.Discard)
+	ownersMap, err := codeowners.New(repo, files, &codeowners.FilesystemReader{}, io.Discard, codeowners.WithOrg(org))
 	if err != nil {
 		return fmt.Errorf("error reading codeowners config: %s", err)
 	}

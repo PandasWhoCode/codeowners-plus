@@ -132,7 +132,7 @@ func TestUnownedFiles(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := unownedFilesWithFormat(testRepo, tc.targets, tc.depth, tc.dirsOnly, FormatDefault)
+			err := unownedFilesWithFormat(testRepo, "", tc.targets, tc.depth, tc.dirsOnly, FormatDefault)
 			if (err != nil) != tc.wantErr {
 				t.Errorf("unownedFilesWithFormat() error = %v, wantErr %v", err, tc.wantErr)
 				return
@@ -216,7 +216,7 @@ func TestFileOwner(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := fileOwner(testRepo, tc.target, "default")
+			err := fileOwner(testRepo, "", tc.target, "default")
 			if (err != nil) != tc.wantErr {
 				t.Errorf("fileOwner() error = %v, wantErr %v", err, tc.wantErr)
 				return
@@ -619,7 +619,7 @@ func TestUnownedFilesWithFormat(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			_ = unownedFilesWithFormat(testRepo, []string{""}, 0, false, tt.format)
+			_ = unownedFilesWithFormat(testRepo, "", []string{""}, 0, false, tt.format)
 
 			// Restore stdout and get output
 			if err := w.Close(); err != nil {
@@ -651,7 +651,7 @@ func TestGenerateOwnershipMap(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := generateOwnershipMap(testRepo, "file")
+		err := generateOwnershipMap(testRepo, "", "file")
 		if err != nil {
 			t.Fatalf("generateOwnershipMap() error = %v", err)
 		}
@@ -699,7 +699,7 @@ func TestGenerateOwnershipMap(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		err := generateOwnershipMap(testRepo, "owner")
+		err := generateOwnershipMap(testRepo, "", "owner")
 		if err != nil {
 			t.Fatalf("generateOwnershipMap() error = %v", err)
 		}

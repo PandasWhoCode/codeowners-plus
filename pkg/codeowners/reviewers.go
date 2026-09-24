@@ -18,6 +18,33 @@ func NewReviewerGroupMemo() ReviewerGroupManager {
 	return make(ReviewerGroupMemo)
 }
 
+// NewReviewerGroupMemoForOrg returns a ReviewerGroupManager that expands the
+// "@%/" organization placeholder in owner tokens before memoizing them.
+//
+// Expansion happens before the memo key and before the Slugs are built, so
+// memoization, Slug.Original (used for @-mentions and reviewer requests) and
+// Slug.Normalized (used as map keys) all agree on the resolved value. An empty
+// org yields the same behavior as NewReviewerGroupMemo.
+func NewReviewerGroupMemoForOrg(org string) ReviewerGroupManager {
+	if org == "" {
+		return NewReviewerGroupMemo()
+	}
+	return &orgReviewerGroupMemo{memo: make(ReviewerGroupMemo), org: org}
+}
+
+type orgReviewerGroupMemo struct {
+	memo ReviewerGroupMemo
+	org  string
+}
+
+func (o *orgReviewerGroupMemo) ToReviewerGroup(names ...string) *ReviewerGroup {
+	expanded := make([]string, len(names))
+	for i, name := range names {
+		expanded[i] = ExpandOrg(name, o.org)
+	}
+	return o.memo.ToReviewerGroup(expanded...)
+}
+
 type ReviewerGroupMemo map[string]*ReviewerGroup
 
 // Create a new Reviewers, memoizing the Reviewers so it is only created once
