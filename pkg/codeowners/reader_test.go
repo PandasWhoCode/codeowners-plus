@@ -134,3 +134,69 @@ func TestReadLastMatchWinsSamePriority(t *testing.T) {
 		prev = idx
 	}
 }
+
+// TestReadExpandsOrgPlaceholder covers the "@%/" placeholder in the native
+// .codeowners format across every rule kind. It uses inMemoryReader rather
+// than the test_project fixtures so the existing exact-count assertions in
+// this file and codeowners_test.go stay untouched.
+func TestReadExpandsOrgPlaceholder(t *testing.T) {
+	content := strings.Join([]string{
+		"* @%/fallback-team",
+		"b.py @%/py-team",
+		"or.py @%/first @second @%/third",
+		"& models* @%/devops",
+		"? a.py @%/juniors",
+	}, "\n")
+
+	rgMan := NewReviewerGroupMemoForOrg("acme")
+	reader := &inMemoryReader{content: []byte(content)}
+	rules := Read("any/dir", rgMan, reader, io.Discard)
+
+	t.Run("fallback", func(t *testing.T) {
+		if rules.Fallback == nil {
+			t.Fatal("expected a fallback rule")
+		}
+		if got := rules.Fallback.Names[0].Original(); got != "@acme/fallback-team" {
+			t.Errorf("fallback owner = %q, expected @acme/fallback-team", got)
+		}
+	})
+
+	t.Run("owner rules", func(t *testing.T) {
+		found := map[string]string{}
+		for _, test := range rules.OwnerTests {
+			found[test.Match] = strings.Join(OriginalStrings(test.Reviewer.Names), ",")
+		}
+		if got := found["b.py"]; got != "@acme/py-team" {
+			t.Errorf("b.py owner = %q, expected @acme/py-team", got)
+		}
+		// Every member of an OR group is expanded; plain handles are untouched.
+		if got := found["or.py"]; got != "@acme/first,@second,@acme/third" {
+			t.Errorf("or.py owners = %q, expected @acme/first,@second,@acme/third", got)
+		}
+	})
+
+	t.Run("additional (&) rules", func(t *testing.T) {
+		if len(rules.AdditionalReviewerTests) != 1 {
+			t.Fatalf("expected 1 additional rule, got %d", len(rules.AdditionalReviewerTests))
+		}
+		if got := rules.AdditionalReviewerTests[0].Reviewer.Names[0].Original(); got != "@acme/devops" {
+			t.Errorf("additional owner = %q, expected @acme/devops", got)
+		}
+	})
+
+	t.Run("optional (?) rules", func(t *testing.T) {
+		if len(rules.OptionalReviewerTests) != 1 {
+			t.Fatalf("expected 1 optional rule, got %d", len(rules.OptionalReviewerTests))
+		}
+		if got := rules.OptionalReviewerTests[0].Reviewer.Names[0].Original(); got != "@acme/juniors" {
+			t.Errorf("optional owner = %q, expected @acme/juniors", got)
+		}
+	})
+
+	t.Run("no expansion without an org", func(t *testing.T) {
+		plain := Read("any/dir", NewReviewerGroupMemo(), &inMemoryReader{content: []byte(content)}, io.Discard)
+		if got := plain.Fallback.Names[0].Original(); got != "@%/fallback-team" {
+			t.Errorf("fallback owner = %q, expected the placeholder to be untouched", got)
+		}
+	})
+}

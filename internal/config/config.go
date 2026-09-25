@@ -10,6 +10,7 @@ import (
 type Config struct {
 	MaxReviews                  *int         `toml:"max_reviews"`
 	MinReviews                  *int         `toml:"min_reviews"`
+	GitHubCodeownersFile        string       `toml:"github_codeowners_file"`
 	UnskippableReviewers        []string     `toml:"unskippable_reviewers"`
 	Ignore                      []string     `toml:"ignore"`
 	Enforcement                 *Enforcement `toml:"enforcement"`
@@ -43,6 +44,7 @@ func newDefaultConfig() *Config {
 	return &Config{
 		MaxReviews:                  nil,
 		MinReviews:                  nil,
+		GitHubCodeownersFile:        "",
 		UnskippableReviewers:        []string{},
 		Ignore:                      []string{},
 		Enforcement:                 &Enforcement{Approval: false, FailCheck: true},

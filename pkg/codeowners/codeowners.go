@@ -42,10 +42,47 @@ type CodeOwners interface {
 	ApplyApprovals(approvers []Slug)
 }
 
+// Options holds the optional settings for New.
+type Options struct {
+	// Org is the organization the repository belongs to. When set, the "@%/"
+	// organization placeholder in owner tokens is expanded to it.
+	Org string
+	// GitHubCodeownersFile is a repo-relative path to a GitHub-format
+	// CODEOWNERS file. When set, that single file is used instead of the
+	// per-directory .codeowners files, with GitHub's last-matching-rule-wins
+	// semantics.
+	GitHubCodeownersFile string
+}
+
+// Option configures New.
+type Option func(*Options)
+
+// WithOrg sets the organization used to expand the "@%/" placeholder in owner
+// tokens.
+func WithOrg(org string) Option {
+	return func(o *Options) { o.Org = org }
+}
+
+// WithGitHubCodeownersFile selects GitHub CODEOWNERS mode, reading ownership
+// from the single file at the given repo-relative path.
+func WithGitHubCodeownersFile(path string) Option {
+	return func(o *Options) { o.GitHubCodeownersFile = path }
+}
+
 // New creates a new CodeOwners object from a root path and a list of diff files
 // If fileReader is nil, it will use the filesystem
-func New(root string, files []DiffFile, fileReader FileReader, warningWriter io.Writer) (CodeOwners, error) {
-	reviewerGroupManager := NewReviewerGroupMemo()
+func New(root string, files []DiffFile, fileReader FileReader, warningWriter io.Writer, opts ...Option) (CodeOwners, error) {
+	options := Options{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	reviewerGroupManager := NewReviewerGroupMemoForOrg(options.Org)
+
+	if options.GitHubCodeownersFile != "" {
+		return newGitHubCodeOwners(root, options.GitHubCodeownersFile, files, fileReader, warningWriter, reviewerGroupManager)
+	}
+
 	tree := initOwnerTreeNode(root, root, reviewerGroupManager, nil, fileReader, warningWriter)
 	tree.warningWriter = warningWriter
 	// TODO - support inline ownership rules (issue #3)

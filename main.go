@@ -16,19 +16,25 @@ import (
 
 // Flags holds the command line flags
 type Flags struct {
-	Token     *string
-	ApiUrl    *string
-	RepoDir   *string
-	PR        *int
-	Repo      *string
-	Verbose   *bool
-	Quiet     *bool
-	Workspace *string
+	Token                *string
+	TeamToken            *string
+	GitHubCodeownersFile *string
+	ApiUrl               *string
+	RepoDir              *string
+	PR                   *int
+	Repo                 *string
+	Verbose              *bool
+	Quiet                *bool
+	Workspace            *string
 }
 
 var (
 	flags = &Flags{
 		Token: flag.String("token", getEnv("INPUT_GITHUB-TOKEN", ""), "GitHub authentication token"),
+		// Optional: scope organization team-membership reads to a separate
+		// token. Falls back to -token when empty.
+		TeamToken:            flag.String("team-token", getEnv("INPUT_TEAM-TOKEN", ""), "Token used only for organization team-membership lookups"),
+		GitHubCodeownersFile: flag.String("github-codeowners-file", getEnv("INPUT_GITHUB-CODEOWNERS-FILE", ""), "Repo-relative path to a GitHub-format CODEOWNERS file to use instead of .codeowners files"),
 		// Fall back to GITHUB_API_URL (always set by the runner) when the input is
 		// empty — e.g. github-api-url passed an unset expression, or the binary run
 		// outside the composite action. Without it, a GHE run would silently hit the
@@ -147,16 +153,18 @@ func main() {
 	}
 
 	cfg := app.Config{
-		Token:         *flags.Token,
-		ApiUrl:        *flags.ApiUrl,
-		RepoDir:       *flags.RepoDir,
-		PR:            *flags.PR,
-		Repo:          *flags.Repo,
-		Verbose:       *flags.Verbose,
-		Quiet:         *flags.Quiet,
-		Workspace:     *flags.Workspace,
-		InfoBuffer:    InfoBuffer,
-		WarningBuffer: WarningBuffer,
+		Token:                *flags.Token,
+		TeamToken:            *flags.TeamToken,
+		GitHubCodeownersFile: *flags.GitHubCodeownersFile,
+		ApiUrl:               *flags.ApiUrl,
+		RepoDir:              *flags.RepoDir,
+		PR:                   *flags.PR,
+		Repo:                 *flags.Repo,
+		Verbose:              *flags.Verbose,
+		Quiet:                *flags.Quiet,
+		Workspace:            *flags.Workspace,
+		InfoBuffer:           InfoBuffer,
+		WarningBuffer:        WarningBuffer,
 	}
 
 	app, err := app.New(cfg)

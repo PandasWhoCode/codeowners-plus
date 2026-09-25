@@ -8,6 +8,14 @@ inputs:
   github-token:
     description: 'Github API token'
     required: true
+  team-token:
+    description: 'Token used only for organization team-membership lookups. Needs read:org. Falls back to github-token when unset.'
+    required: false
+    default: ''
+  github-codeowners-file:
+    description: 'Repo-relative path to a GitHub-format CODEOWNERS file (e.g. .github/CODEOWNERS) to use instead of per-directory .codeowners files. Uses GitHub last-matching-rule-wins semantics.'
+    required: false
+    default: ''
   pr:
     description: 'Pull request number'
     required: true
@@ -113,6 +121,8 @@ runs:
         # os.LookupEnv. Bash passes non-identifier env vars through to child
         # processes untouched.
         INPUT_GITHUB-TOKEN: ${{ inputs.github-token }}
+        INPUT_TEAM-TOKEN: ${{ inputs.team-token }}
+        INPUT_GITHUB-CODEOWNERS-FILE: ${{ inputs.github-codeowners-file }}
         INPUT_PR: ${{ inputs.pr }}
         INPUT_REPOSITORY: ${{ inputs.repository }}
         INPUT_GITHUB-API-URL: ${{ inputs.github-api-url }}
