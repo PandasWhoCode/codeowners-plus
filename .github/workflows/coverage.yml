@@ -1,4 +1,4 @@
-name: 'Coverage Badge'
+name: 'Coverage Report'
 
 on:
   push:
@@ -9,12 +9,11 @@ on:
 permissions: {}
 
 jobs:
-  build-test:
-    name: 'Check Coverage Badge'
+  coverage:
+    name: 'Coverage Report'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -23,11 +22,7 @@ jobs:
       with:
         go-version: '1.26'
 
-    - name: 'Install gobadge'
-      run: go install github.com/AlexBeauchemin/gobadge@v0.4.0
-
-    - name: 'Run gobadge'
-      run: ./scripts/covbadge.sh
-
-    - name: 'Fail if not updated'
-      run: git diff -U0 --exit-code
+    # Coverage is reported in the job summary only. Nothing is written back to
+    # the repository, so there is no committed badge to keep in sync.
+    - name: 'Report coverage'
+      run: ./scripts/coverage.sh >> "${GITHUB_STEP_SUMMARY}"
