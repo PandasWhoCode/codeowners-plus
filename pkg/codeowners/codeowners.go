@@ -44,7 +44,7 @@ type CodeOwners interface {
 
 // Options holds the optional settings for New.
 type Options struct {
-	// Org is the organization the repository belongs to. When set, the "%/"
+	// Org is the organization the repository belongs to. When set, the "%"
 	// organization placeholder in owner tokens is expanded to it.
 	Org string
 	// GitHubCodeownersFile is a repo-relative path to a GitHub-format
@@ -57,7 +57,7 @@ type Options struct {
 // Option configures New.
 type Option func(*Options)
 
-// WithOrg sets the organization used to expand the "%/" placeholder in owner
+// WithOrg sets the organization used to expand the "%" placeholder in owner
 // tokens.
 func WithOrg(org string) Option {
 	return func(o *Options) { o.Org = org }

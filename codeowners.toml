@@ -3,7 +3,7 @@ min_reviews = 1
 # `max_reviews` (default nil) allows you to skip some reviewers if the number of reviewers is greater than the max_reviewers
 max_reviews = 2
 # `unskippable_reviewers` allows you to specify reviewers that cannot be skipped via the max_reviews setting
-# Supports the "%/team" organization placeholder, which expands to this repository's organization
+# Supports the "%team" organization placeholder, which expands to this repository's organization
 unskippable_reviewers = ["@BakerNet"]
 
 # `github_codeowners_file` reads ownership from a single GitHub-format CODEOWNERS file
