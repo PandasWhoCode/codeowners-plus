@@ -13,9 +13,9 @@ func TestExpandOrg(t *testing.T) {
 		org      string
 		expected string
 	}{
-		{"expands the placeholder", "@%/platform-ci", "swirldslabs", "@swirldslabs/platform-ci"},
-		{"expands against another org", "@%/platform-ci", "PandasWhoCode", "@PandasWhoCode/platform-ci"},
-		{"expands a nested slug", "@%/a/b", "acme", "@acme/a/b"},
+		{"expands the placeholder", "%/platform-ci", "swirldslabs", "@swirldslabs/platform-ci"},
+		{"expands against another org", "%/platform-ci", "PandasWhoCode", "@PandasWhoCode/platform-ci"},
+		{"expands a nested slug", "%/a/b", "acme", "@acme/a/b"},
 		{"leaves a plain user alone", "@alice", "acme", "@alice"},
 		{"leaves a qualified team alone", "@other-org/team", "acme", "@other-org/team"},
 		{"leaves an email alone", "dev@example.com", "acme", "dev@example.com"},
@@ -23,8 +23,9 @@ func TestExpandOrg(t *testing.T) {
 		{"leaves a trailing percent alone", "@org/%", "acme", "@org/%"},
 		{"leaves @% without a slash alone", "@%", "acme", "@%"},
 		{"leaves a bare percent alone", "%", "acme", "%"},
-		{"leaves %/team without the @ alone", "%/team", "acme", "%/team"},
-		{"is a no-op with an empty org", "@%/platform-ci", "", "@%/platform-ci"},
+		{"leaves the legacy @%/team form alone", "@%/team", "acme", "@%/team"},
+		{"leaves %/ without a slug alone", "%/", "acme", "%/"},
+		{"is a no-op with an empty org", "%/platform-ci", "", "%/platform-ci"},
 		{"is a no-op on an empty string", "", "acme", ""},
 	}
 
@@ -44,10 +45,11 @@ func TestWarnSuspiciousOrgPlaceholder(t *testing.T) {
 		expectWarn bool
 	}{
 		{"no percent", "@alice", false},
-		{"valid placeholder", "@%/team", false},
+		{"valid placeholder", "%/team", false},
 		{"percent in the middle", "@foo%bar", true},
 		{"percent without a slash", "@%", true},
-		{"percent without the at sign", "%/team", true},
+		{"legacy @%/team form", "@%/team", true},
+		{"placeholder without a slug", "%/", true},
 	}
 
 	for _, tc := range tt {
@@ -65,7 +67,7 @@ func TestWarnSuspiciousOrgPlaceholder(t *testing.T) {
 func TestNewReviewerGroupMemoForOrg(t *testing.T) {
 	t.Run("expands names before building slugs", func(t *testing.T) {
 		rgm := NewReviewerGroupMemoForOrg("swirldslabs")
-		group := rgm.ToReviewerGroup("@%/platform-ci")
+		group := rgm.ToReviewerGroup("%/platform-ci")
 		if len(group.Names) != 1 {
 			t.Fatalf("expected 1 name, got %d", len(group.Names))
 		}
@@ -81,7 +83,7 @@ func TestNewReviewerGroupMemoForOrg(t *testing.T) {
 
 	t.Run("placeholder and explicit org memoize to the same group", func(t *testing.T) {
 		rgm := NewReviewerGroupMemoForOrg("acme")
-		viaPlaceholder := rgm.ToReviewerGroup("@%/team")
+		viaPlaceholder := rgm.ToReviewerGroup("%/team")
 		viaExplicit := rgm.ToReviewerGroup("@acme/team")
 		if viaPlaceholder != viaExplicit {
 			t.Error("expected the placeholder and the explicit org to resolve to the same memoized group")
@@ -90,7 +92,7 @@ func TestNewReviewerGroupMemoForOrg(t *testing.T) {
 
 	t.Run("expands every name in an OR group", func(t *testing.T) {
 		rgm := NewReviewerGroupMemoForOrg("acme")
-		group := rgm.ToReviewerGroup("@%/a", "@bob", "@%/b")
+		group := rgm.ToReviewerGroup("%/a", "@bob", "%/b")
 		expected := []string{"@acme/a", "@bob", "@acme/b"}
 		if len(group.Names) != len(expected) {
 			t.Fatalf("expected %d names, got %d", len(expected), len(group.Names))
@@ -104,8 +106,8 @@ func TestNewReviewerGroupMemoForOrg(t *testing.T) {
 
 	t.Run("empty org behaves like the plain memo", func(t *testing.T) {
 		rgm := NewReviewerGroupMemoForOrg("")
-		group := rgm.ToReviewerGroup("@%/team")
-		if got := group.Names[0].Original(); got != "@%/team" {
+		group := rgm.ToReviewerGroup("%/team")
+		if got := group.Names[0].Original(); got != "%/team" {
 			t.Errorf("Original() = %q, expected the token to be untouched", got)
 		}
 	})

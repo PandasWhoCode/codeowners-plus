@@ -81,7 +81,7 @@ type App struct {
 	Conf   *owners.Config
 	config *Config
 	// owner is the organization (or user) the repository belongs to. It is
-	// used to expand the "@%/" organization placeholder in owner tokens.
+	// used to expand the "%/" organization placeholder in owner tokens.
 	owner      string
 	client     gh.Client
 	codeowners codeowners.CodeOwners

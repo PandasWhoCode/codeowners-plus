@@ -181,7 +181,7 @@ func TestGitHubCodeownersEarlierRuleDoesNotWin(t *testing.T) {
 }
 
 func TestGitHubCodeownersOrgPlaceholder(t *testing.T) {
-	content := "*   @%/platform-ci\n"
+	content := "*   %/platform-ci\n"
 
 	for _, org := range []string{"swirldslabs", "PandasWhoCode"} {
 		t.Run(org, func(t *testing.T) {
@@ -203,7 +203,7 @@ func TestGitHubCodeownersParsing(t *testing.T) {
 	content := strings.Join([]string{
 		"# a leading comment",
 		"",
-		"*                @%/platform-ci",
+		"*                %/platform-ci",
 		"/docs/           @alice @bob      # an OR group with an inline comment",
 		"/legacy/         dev@example.com",
 		"/broken/",
@@ -283,7 +283,7 @@ func TestGitHubCodeownersMissingFile(t *testing.T) {
 }
 
 func TestGitHubCodeownersApplyApprovals(t *testing.T) {
-	content := "*   @%/platform-ci\n"
+	content := "*   %/platform-ci\n"
 	reader := &githubFileReader{path: "/repo/.github/CODEOWNERS", content: []byte(content)}
 	co, err := New("/repo", diffFiles("main.go"), reader, io.Discard,
 		WithGitHubCodeownersFile(".github/CODEOWNERS"), WithOrg("acme"))
@@ -315,4 +315,44 @@ func TestJoinRepoPath(t *testing.T) {
 			t.Errorf("joinRepoPath(%q, %q) = %q, expected %q", tc.root, tc.rel, got, tc.expected)
 		}
 	}
+}
+
+func TestGitHubCodeownersRootDotCodeowners(t *testing.T) {
+	content := strings.Join([]string{
+		"*          %/platform-ci",
+		"/docs/     %/docs-team @alice",
+		"/legacy/   @%/old-team",
+	}, "\n")
+
+	warnings := bytes.NewBuffer(nil)
+	reader := &githubFileReader{path: "/repo/.codeowners", content: []byte(content)}
+	co, err := New("/repo", diffFiles("main.go", "docs/a.md", "legacy/b.go"), reader, warnings,
+		WithGitHubCodeownersFile(".codeowners"), WithOrg("acme"))
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	t.Run("reads a root .codeowners file", func(t *testing.T) {
+		if got := ownersFor(t, co, "main.go"); !slices.Equal(got, []string{"@acme/platform-ci"}) {
+			t.Errorf("owners = %v, expected [@acme/platform-ci]", got)
+		}
+	})
+
+	t.Run("mixes %/team and @user in an OR group", func(t *testing.T) {
+		if got := ownersFor(t, co, "docs/a.md"); !slices.Equal(got, []string{"@acme/docs-team", "@alice"}) {
+			t.Errorf("owners = %v, expected [@acme/docs-team @alice]", got)
+		}
+	})
+
+	t.Run("does not expand the legacy @%/ form and warns about it", func(t *testing.T) {
+		if got := ownersFor(t, co, "legacy/b.go"); !slices.Equal(got, []string{"@%/old-team"}) {
+			t.Errorf("owners = %v, expected [@%%/old-team]", got)
+		}
+		if !strings.Contains(warnings.String(), "not an organization placeholder") {
+			t.Error("expected a warning about the legacy @%/ owner")
+		}
+		if strings.Contains(warnings.String(), "Unsupported owner") {
+			t.Errorf("did not expect %%/team to be reported as unsupported: %s", warnings.String())
+		}
+	})
 }
