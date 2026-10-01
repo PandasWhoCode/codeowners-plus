@@ -31,7 +31,7 @@ go run tools/cli/main.go <command> [flags]
 
 * Fork the repository
 * Create a new branch for your changes
-* After making code changes, run `./scripts/covbadge.sh` to update the code coverage badge (this will be enforced in GHA checks)
+* Optionally run `./scripts/coverage.sh` to see test coverage (the Coverage Report check also posts it to the job summary; nothing is committed)
 * Commit your changes with clear and descriptive commit messages
 * Push your changes to your fork
 * Open a pull request against the `main` branch of this repository

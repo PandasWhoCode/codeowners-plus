@@ -4,7 +4,6 @@ Code Ownership &amp; Review Assignment Tool - GitHub CODEOWNERS but better
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/multimediallc/codeowners-plus)](https://goreportcard.com/report/github.com/multimediallc/codeowners-plus?kill_cache=1)
 [![Tests](https://github.com/multimediallc/codeowners-plus/actions/workflows/go.yml/badge.svg)](https://github.com/multimediallc/codeowners-plus/actions/workflows/go.yml)
-![Coverage](https://img.shields.io/badge/Coverage-84.7%25-brightgreen)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
@@ -53,7 +52,7 @@ These are features missing from GitHub code owners that are supported by Codeown
 * Directory-level code ownership files to assign fine-grained code ownership
 * Supports optional reviewers (cc users/teams for non-blocking reviews)
 * Hunk filters: external tooling can decide which post-approval changes do not need re-review (see [Hunk Filters](#hunk-filters))
-* Organization placeholder: write `@%/team` so one ownership file works in several organizations (see [Organization Placeholder](#organization-placeholder))
+* Organization placeholder: write `%team` so one ownership file works in several organizations (see [Organization Placeholder](#organization-placeholder))
 * Can read a GitHub-format `CODEOWNERS` file instead of `.codeowners` files (see [GitHub CODEOWNERS Mode](#github-codeowners-mode))
 * Advanced global configuration (see [Advanced Configuration](#advanced-configuration))
 
@@ -143,18 +142,21 @@ The value should be the instance's exact API URL — the same value as the `gith
 
 ### Organization Placeholder
 
-A team reference is organization-qualified (`@your-org/platform-ci`), which normally prevents the same ownership file from being shared across two organizations. Write `%` in place of the organization and it is expanded at run time to the organization of the repository the action is running in:
+A team reference is organization-qualified (`@your-org/platform-ci`), which normally prevents the same ownership file from being shared across two organizations. Write a team as `%team-name` and it is expanded at run time to `@<org>/team-name`, where `<org>` is the organization of the repository the action is running in. Users are still written `@user`:
 
 ```
-* @%/platform-ci
+* %platform-ci @alice
 ```
 
 In `your-org/repo` that resolves to `@your-org/platform-ci`; in `other-org/repo` the identical file resolves to `@other-org/platform-ci`. This works in `.codeowners` files, in GitHub CODEOWNERS mode, and in `unskippable_reviewers` in `codeowners.toml`.
 
-Only the exact `@%/` prefix is a placeholder. `@user`, `@org/team` and any other use of `%` pass through untouched, so existing files are unaffected — and because `%` is not a legal character in a GitHub organization name, there is no possibility of collision with a real owner. An owner token that contains `%` in any other position produces a warning, so typos surface instead of silently never matching.
+Only a leading `%` followed directly by a team slug is a placeholder. `@user`, `@org/team` and any other use of `%` pass through untouched — and because `%` is not a legal character in a GitHub organization name, there is no possibility of collision with a real owner. An owner token that contains `%` in any other position produces a warning, so typos surface instead of silently never matching.
+
+> [!Important]
+> The earlier `@%/team` and `%/team` forms are no longer expanded and now produce a warning. Rewrite such entries as `%team`.
 
 > [!Note]
-> A repository owned by a personal account rather than an organization will expand `@%/team` to `@user/team`, and the team lookup will fail with a warning. The placeholder is only meaningful for organization-owned repositories.
+> A repository owned by a personal account rather than an organization will expand `%team` to `@user/team`, and the team lookup will fail with a warning. The placeholder is only meaningful for organization-owned repositories.
 
 For the CLI, pass the organization explicitly with `--org`:
 
@@ -164,7 +166,7 @@ codeowners-cli owner --org your-org path/to/file
 
 ### GitHub CODEOWNERS Mode
 
-Set the `github-codeowners-file` input to read ownership from a single GitHub-format `CODEOWNERS` file instead of per-directory `.codeowners` files:
+Set the `github-codeowners-file` input to read ownership from a single GitHub-format `CODEOWNERS` file instead of per-directory `.codeowners` files. Any repo-relative path works, including a root `.codeowners` file (only that one file is read, with GitHub semantics):
 
 ```yaml
       - uses: multimediallc/codeowners-plus@v1.11.0
@@ -284,7 +286,7 @@ min_reviews = 1
 max_reviews = 2
 
 # `unskippable_reviewers` (default empty) allows you to specify reviewers that cannot be
-#  skipped via the max_reviews setting.  Supports the "@%/" organization placeholder.
+#  skipped via the max_reviews setting.  Supports the "%team" organization placeholder.
 unskippable_reviewers = ["@BakerNet"]
 
 # `github_codeowners_file` (default "") reads ownership from a single GitHub-format
@@ -525,7 +527,7 @@ Available subcommands are:
 * `validate` to check for typos in a `.codeowners` file
 * `map` to print a full ownership map of the repository
 
-`unowned`, `owner` and `map` accept `--org`, which supplies the organization used to expand the `@%/` placeholder in owner tokens.  Without it the placeholder is left as-is:
+`unowned`, `owner` and `map` accept `--org`, which supplies the organization used to expand the `%team` placeholder in owner tokens.  Without it the placeholder is left as-is:
 
 ```bash
 codeowners-cli owner --org your-org src/main.go

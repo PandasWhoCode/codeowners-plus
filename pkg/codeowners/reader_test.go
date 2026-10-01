@@ -135,17 +135,17 @@ func TestReadLastMatchWinsSamePriority(t *testing.T) {
 	}
 }
 
-// TestReadExpandsOrgPlaceholder covers the "@%/" placeholder in the native
+// TestReadExpandsOrgPlaceholder covers the "%" placeholder in the native
 // .codeowners format across every rule kind. It uses inMemoryReader rather
 // than the test_project fixtures so the existing exact-count assertions in
 // this file and codeowners_test.go stay untouched.
 func TestReadExpandsOrgPlaceholder(t *testing.T) {
 	content := strings.Join([]string{
-		"* @%/fallback-team",
-		"b.py @%/py-team",
-		"or.py @%/first @second @%/third",
-		"& models* @%/devops",
-		"? a.py @%/juniors",
+		"* %fallback-team",
+		"b.py %py-team",
+		"or.py %first @second %third",
+		"& models* %devops",
+		"? a.py %juniors",
 	}, "\n")
 
 	rgMan := NewReviewerGroupMemoForOrg("acme")
@@ -195,7 +195,7 @@ func TestReadExpandsOrgPlaceholder(t *testing.T) {
 
 	t.Run("no expansion without an org", func(t *testing.T) {
 		plain := Read("any/dir", NewReviewerGroupMemo(), &inMemoryReader{content: []byte(content)}, io.Discard)
-		if got := plain.Fallback.Names[0].Original(); got != "@%/fallback-team" {
+		if got := plain.Fallback.Names[0].Original(); got != "%fallback-team" {
 			t.Errorf("fallback owner = %q, expected the placeholder to be untouched", got)
 		}
 	})

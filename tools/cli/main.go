@@ -72,7 +72,7 @@ func main() {
 					&cli.StringFlag{
 						Name:        "org",
 						Value:       "",
-						Usage:       "GitHub organization used to expand the \"@%/\" placeholder in owner tokens",
+						Usage:       "GitHub organization used to expand the \"%\" placeholder in owner tokens",
 						Destination: &org,
 					},
 					&cli.IntFlag{
@@ -124,7 +124,7 @@ func main() {
 					&cli.StringFlag{
 						Name:        "org",
 						Value:       "",
-						Usage:       "GitHub organization used to expand the \"@%/\" placeholder in owner tokens",
+						Usage:       "GitHub organization used to expand the \"%\" placeholder in owner tokens",
 						Destination: &org,
 					},
 					&cli.StringFlag{
@@ -212,7 +212,7 @@ func main() {
 					&cli.StringFlag{
 						Name:        "org",
 						Value:       "",
-						Usage:       "GitHub organization used to expand the \"@%/\" placeholder in owner tokens",
+						Usage:       "GitHub organization used to expand the \"%\" placeholder in owner tokens",
 						Destination: &org,
 					},
 					&cli.StringFlag{

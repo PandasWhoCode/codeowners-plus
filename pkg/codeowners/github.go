@@ -115,10 +115,10 @@ func readGitHubCodeowners(
 
 		owners := make([]string, 0, len(parts)-1)
 		for _, owner := range parts[1:] {
-			if !strings.HasPrefix(owner, "@") {
+			if !strings.HasPrefix(owner, "@") && !IsOrgPlaceholder(owner) {
 				// Emails and other non-handle owners are not supported by this
 				// tool; skip them rather than treating them as a handle.
-				_, _ = fmt.Fprintf(warningWriter, "WARNING: Unsupported owner %q in CODEOWNERS file (only @user and @org/team are supported)\n", owner)
+				_, _ = fmt.Fprintf(warningWriter, "WARNING: Unsupported owner %q in CODEOWNERS file (only @user, @org/team and %%team are supported)\n", owner)
 				continue
 			}
 			warnSuspiciousOrgPlaceholder(owner, warningWriter)

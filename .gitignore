@@ -32,3 +32,6 @@ codeowners-cli
 
 # Local agent configuration
 .claude/
+
+# Idea folder when using IntelliJ IDEA or GoLand
+.idea/

@@ -19,7 +19,7 @@ func NewReviewerGroupMemo() ReviewerGroupManager {
 }
 
 // NewReviewerGroupMemoForOrg returns a ReviewerGroupManager that expands the
-// "@%/" organization placeholder in owner tokens before memoizing them.
+// "%" organization placeholder in owner tokens before memoizing them.
 //
 // Expansion happens before the memo key and before the Slugs are built, so
 // memoization, Slug.Original (used for @-mentions and reviewer requests) and
