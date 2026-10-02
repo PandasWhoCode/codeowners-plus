@@ -1,6 +1,6 @@
 name: 'Codeowners Plus'
 description: 'Feature-rich alternative to GitHub Code Owners for monoliths and mono-repos'
-author: 'Hans Baker'
+author: 'PandasWhoCode'
 branding:
   icon: 'plus-circle'
   color: 'blue'
