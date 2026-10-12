@@ -138,6 +138,20 @@ func TestToCommentString(t *testing.T) {
 	if rgs.ToCommentString(true) != "- @a\n- ✅ @b" {
 		t.Error("ToCommentString should use sorted reviewers")
 	}
+
+	// Teams are not @-mentioned in comments, but the group string keeps the handle
+	teamRg := rgMan.ToReviewerGroup("@org/team", "@alice")
+	if teamRg.ToCommentString() != "@org/team or @alice" {
+		t.Error("ReviewerGroup.ToCommentString should keep original handles")
+	}
+	rgs = ReviewerGroups{teamRg}
+	if got := rgs.ToCommentString(true); got != "- org/team or @alice" {
+		t.Errorf("ToCommentString should not mention teams, got %q", got)
+	}
+	teamRg.Approved = true
+	if got := rgs.ToCommentString(true); got != "- ✅ org/team or @alice" {
+		t.Errorf("ToCommentString should not mention approved teams, got %q", got)
+	}
 }
 
 func TestReviewerGroupsFlatten(t *testing.T) {

@@ -353,7 +353,10 @@ When a PR has any of the `high_priority_labels`, the comment will look like this
 Codeowners approval required for this PR:
 - @user1
 - @user2
+- my-org/backend
 ```
+
+Team owners are listed without the leading `@` so the comment does not notify every member of the team; the team is still requested as a reviewer.
 
 #### Enforcement Options
 
