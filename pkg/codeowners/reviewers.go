@@ -141,7 +141,7 @@ func (rgs ReviewerGroups) ToCommentString(includeCheckbox bool) string {
 				prefix += "✅ "
 			}
 		}
-		return fmt.Sprintf("%s%s", prefix, s.ToCommentString())
+		return fmt.Sprintf("%s%s", prefix, strings.Join(CommentStrings(s.Names), " or "))
 	})
 	slices.Sort(ownersList)
 	return strings.Join(ownersList, "\n")

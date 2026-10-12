@@ -1272,7 +1272,7 @@ func TestCommentDetailedReviewers(t *testing.T) {
 							&codeowners.ReviewerGroup{Names: codeowners.NewSlugs([]string{"@user1", "@user2"})},
 						},
 						"file2.go": {
-							&codeowners.ReviewerGroup{Names: codeowners.NewSlugs([]string{"@user1"})},
+							&codeowners.ReviewerGroup{Names: codeowners.NewSlugs([]string{"@user1", "@org/team"})},
 						},
 					},
 					requiredOwners: requiredOwners,
@@ -1289,7 +1289,7 @@ func TestCommentDetailedReviewers(t *testing.T) {
 
 			DetailedReviewersSnippet := "\n\n<details><summary>Show detailed file reviewers</summary>\n\n" +
 				"- file1.go: [@user1 @user2]\n" +
-				"- file2.go: [@user1]\n\n"
+				"- file2.go: [org/team @user1]\n\n"
 
 			containsDetailedReviewersSnippet := strings.Contains(mockGH.AddCommentInput, DetailedReviewersSnippet)
 
@@ -1297,6 +1297,9 @@ func TestCommentDetailedReviewers(t *testing.T) {
 				t.Logf("AddCommentInput: %s", mockGH.AddCommentInput)
 				t.Errorf("expected comment to include detailed owners to be %t, got %t ",
 					tc.detailedReviewers, containsDetailedReviewersSnippet)
+			}
+			if strings.Contains(mockGH.AddCommentInput, "@org/team") {
+				t.Errorf("expected comment not to mention teams, got %s", mockGH.AddCommentInput)
 			}
 
 		})

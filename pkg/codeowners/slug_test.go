@@ -189,6 +189,49 @@ func TestSlugString(t *testing.T) {
 	}
 }
 
+func TestSlugCommentString(t *testing.T) {
+	tt := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "user keeps @",
+			input: "@User",
+			want:  "@User",
+		},
+		{
+			name:  "team drops @",
+			input: "@Org/Team",
+			want:  "Org/Team",
+		},
+		{
+			name:  "team without @ unchanged",
+			input: "org/team",
+			want:  "org/team",
+		},
+		{
+			name:  "email unchanged",
+			input: "user@example.com",
+			want:  "user@example.com",
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			slug := NewSlug(tc.input)
+			if got := slug.CommentString(); got != tc.want {
+				t.Errorf("CommentString() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	got := CommentStrings(NewSlugs([]string{"@a", "@org/team"}))
+	if len(got) != 2 || got[0] != "@a" || got[1] != "org/team" {
+		t.Errorf("CommentStrings() = %v, want [@a org/team]", got)
+	}
+}
+
 func TestSlugMarshalJSON(t *testing.T) {
 	tt := []struct {
 		name  string

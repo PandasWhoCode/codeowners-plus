@@ -52,6 +52,16 @@ func (s Slug) String() string {
 	return s.original
 }
 
+// CommentString returns the representation used in PR comments. Team handles
+// ("@org/team") drop the leading "@" so the comment does not notify every team
+// member; user handles are returned unchanged.
+func (s Slug) CommentString() string {
+	if strings.Contains(s.original, "/") {
+		return strings.TrimPrefix(s.original, "@")
+	}
+	return s.original
+}
+
 // MarshalJSON implements json.Marshaler for GitHub API compatibility.
 // Serializes as the original string to preserve case.
 func (s Slug) MarshalJSON() ([]byte, error) {
@@ -76,6 +86,16 @@ func OriginalStrings(slugs []Slug) []string {
 	result := make([]string, len(slugs))
 	for i, s := range slugs {
 		result[i] = s.Original()
+	}
+	return result
+}
+
+// CommentStrings extracts comment-safe strings from Slug slice.
+// Use when rendering owners in PR comments so teams are not @-mentioned.
+func CommentStrings(slugs []Slug) []string {
+	result := make([]string, len(slugs))
+	for i, s := range slugs {
+		result[i] = s.CommentString()
 	}
 	return result
 }

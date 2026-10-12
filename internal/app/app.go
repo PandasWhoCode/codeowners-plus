@@ -696,7 +696,7 @@ func (a *App) getFileOwnersMapToString(fileReviewers map[string]codeowners.Revie
 	for _, file := range files {
 		reviewers := fileReviewers[file]
 		// builder.WriteString error return is always nil
-		_, _ = fmt.Fprintf(&builder, "- %s: %+v\n", file, codeowners.OriginalStrings(reviewers.Flatten()))
+		_, _ = fmt.Fprintf(&builder, "- %s: %+v\n", file, codeowners.CommentStrings(reviewers.Flatten()))
 	}
 	return builder.String()
 }
